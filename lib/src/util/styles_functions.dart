@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'const_values.dart';
 
 TextStyle getTextStyle(BuildContext context) {
   return TextStyle(
@@ -37,25 +36,20 @@ double getFontSize(BuildContext context) {
   return FontSize.phone;
 }
 
-String toString(Duration duration) {
-    var microseconds = duration.inMilliseconds;
+class NotesListItemPadding {
+  static const double desktop = 50;
+  static const double tablet = 40;
+  static const double phone = 25;
+}
 
-    var hours = microseconds ~/ Duration.microsecondsPerHour;
-    microseconds = microseconds.remainder(Duration.microsecondsPerHour);
+class H1FontSize {
+  static const double desktop = 26;
+  static const double tablet = 19;
+  static const double phone = 13;
+}
 
-    if (microseconds < 0) microseconds = -microseconds;
-
-    var minutes = microseconds ~/ Duration.microsecondsPerMinute;
-    microseconds = microseconds.remainder(Duration.microsecondsPerMinute);
-
-    var minutesPadding = minutes < 10 ? "0" : "";
-
-    var seconds = microseconds ~/ Duration.microsecondsPerSecond;
-    microseconds = microseconds.remainder(Duration.microsecondsPerSecond);
-
-    var secondsPadding = seconds < 10 ? "0" : "";
-    
-    return "$hours:"
-        "$minutesPadding$minutes:"
-        "$secondsPadding";
-  }
+class FontSize {
+  static const double desktop = 15;
+  static const double tablet = 10;
+  static const double phone = 5;
+}

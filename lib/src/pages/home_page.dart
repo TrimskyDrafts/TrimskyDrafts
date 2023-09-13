@@ -1,47 +1,108 @@
-import 'page.dart';
-import 'package:flutter/material.dart';
-import '../additional_functions.dart';
+import 'dart:io';
 
-class HomePage extends IPage {
+import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:trimsky_draft/src/util/const_values.dart';
+import 'package:trimsky_draft/notifications_service.dart' 
+      show flutterLocalNotificationsPlugin, didReceiveLocalNotificationStream, selectNotificationStream;
+import 'package:trimsky_draft/src/util/received_notification.dart';
+
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+  
+  @override
+  State<StatefulWidget> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
 
   @override
-  Widget buildBody(BuildContext context) {
-    var references = _buildReferenceList(context);
+  Widget build(BuildContext context) {
     return Row(children: [
-        references,
-        const Icon(Icons.brush)
-      ]);
+      makeActionPanel(context),
+      const VerticalDivider(),
+      Row(children: const [
+        Text("Get Started!", style: Styles.titleName),
+        Icon(Icons.brush)
+      ])
+    ]);
   }
 
-  SizedBox _buildReferenceList(BuildContext context) {
-    return SizedBox(
-        width: getDeviceWidth(context) / 2,
-        child: ListView(
-          padding: EdgeInsets.only(left: 120, top: getDeviceWidth(context) / 4),
-          children: const [
-            ListTile(
-              title: Text(
-                "Get Started!",
-                style: TextStyle(fontSize: 15),
-              ),
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(Icons.add, color: Colors.blue),
-              title: Text(
-                "New note",
-                style: TextStyle(fontSize: 13, color: Colors.blue),
-              ),
-            ),
-            ListTile(
-              leading: Icon(Icons.calendar_month_outlined, color: Colors.blue),
-              title: Text(
-                "Go to calendar",
-                style: TextStyle(fontSize: 13, color: Colors.blue),
-              ),
-            ),
-          ],
-        ));
+  /// HomePage hasn't got any actions, so actions panel just empty
+  Widget makeActionPanel(BuildContext context) {
+    return const SizedBox(
+            height: double.infinity, 
+            width: 30
+      );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _isAndroidPermissionGranted();
+    _requestPermissions();
+    _configureDidReceiveLocalNotificationSubject();
+    _configureSelectNotificationSubject();
+  }
+
+  Future<void> _isAndroidPermissionGranted() async {
+    if (Platform.isAndroid) {
+      await flutterLocalNotificationsPlugin
+              .resolvePlatformSpecificImplementation<
+                  AndroidFlutterLocalNotificationsPlugin>()
+              ?.areNotificationsEnabled() ??
+          false;
+
+      setState(() {});
+    }
+  }
+
+  Future<void> _requestPermissions() async {
+    if (Platform.isIOS || Platform.isMacOS) {
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              MacOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+    } else if (Platform.isAndroid) {
+      final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+          flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+
+      await androidImplementation?.requestPermission();
+      setState(() {});
+    }
+  }
+
+  void _configureDidReceiveLocalNotificationSubject() {
+    didReceiveLocalNotificationStream.stream
+        .listen((ReceivedNotification receivedNotification) async {
+          context.go("/tasks");
+    });
+  }
+
+  void _configureSelectNotificationSubject() {
+    selectNotificationStream.stream.listen((String? payload) async {
+      context.go("/tasks");
+    });
+  }
+
+  @override
+  void dispose() {
+    didReceiveLocalNotificationStream.close();
+    selectNotificationStream.close();
+    super.dispose();
   }
 }

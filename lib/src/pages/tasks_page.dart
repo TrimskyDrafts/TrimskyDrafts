@@ -1,202 +1,87 @@
-import 'page.dart';
 import 'package:flutter/material.dart';
+import 'package:trimsky_draft/src/util/common_task_data.dart';
+import 'package:trimsky_draft/src/util/const_values.dart';
 
-class TasksPage extends IPage {
+import 'package:trimsky_draft/tasks_service.dart';
+import 'package:trimsky_draft/src/util/timer_task_data.dart';
+
+part 'tasks_page/add_action.dart';
+part 'tasks_page/timer_task.dart';
+part 'tasks_page/text_task.dart';
+
+class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
 
   @override
-  Widget buildBody(BuildContext context) {
-    return Tasks();
-  }
+  State<TasksPage> createState() => _TasksPageState();
 }
 
-class Tasks extends StatefulWidget {
-  Tasks({super.key});
-  final List<StatelessWidget> tasks = <StatelessWidget>[];
-
-  @override
-  State<Tasks> createState() => _TasksState();
-}
-
-/* 
-TODO: make ValidateCallback description
-*/
-typedef ValidateCallback = Function(BuildContext context,
-    {required String name, required String date, String? desc});
-
-class _TasksState extends State<Tasks> {
-  void _onValidated(BuildContext context,
-      {required String name, required String date, String? desc}) {
-    Navigator.pop(context);
-    setState(() {
-      widget.tasks.add(Task.fromString(name: name, date: date, desc: desc));
-    });
-  }
-
-  void _onTap() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-            content: DialogForm(
-          validateCallback: _onValidated,
-        ));
-      },
-    );
-  }
-
+class _TasksPageState extends State<TasksPage> {
   @override
   void initState() {
+    tasksPageCallback = () async => setState(() {});
     super.initState();
-    widget.tasks.insert(0, AddButton(onTap: _onTap));
+  }
+
+  @override
+  void dispose() {
+    tasksPageCallback = null;
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: widget.tasks.length,
-      itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: widget.tasks[index]),
-    );
+    return Row(children: [
+      makeActionPanel(context),
+      const VerticalDivider(),
+      makeCategoryPanel(context),
+      const VerticalDivider(),
+      Expanded(child: ListView.builder(
+        primary: false,
+        itemCount: currentCategory.tasks.length,
+        itemBuilder: (context, index) => buildTaskWidgetWithIndex(index)
+      )),
+    ]);
   }
-}
 
-class AddButton extends StatelessWidget {
-  const AddButton({super.key, required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-        onPressed: onTap,
-        child: Row(children: const [Icon(Icons.add), Text("Add")]));
+  void onTap() async {
+    await currentCategory.showDialogForm(this);
+    setState(() {});
   }
-}
 
-class Task extends StatelessWidget {
-  final TaskData data;
-  Task.fromString(
-      {super.key, required String name, required String date, String? desc})
-      : data = TaskData(name: name, date: date, desc: desc);
-  const Task({super.key, required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(data.name),
-      subtitle: Text((data.desc == null) ? "" : data.desc!),
-      leading: Text(data.date),
-    );
-  }
-}
-
-class TaskData {
-  final String name, date;
-  String? desc;
-  TaskData({required this.name, required this.date, this.desc});
-}
-
-/* 
-TODO: make DialogForm description
-*/
-class DialogForm extends StatefulWidget {
-  final ValidateCallback validateCallback;
-  const DialogForm({super.key, required this.validateCallback});
-
-  @override
-  State<DialogForm> createState() => _DialogFormState();
-}
-
-/*
-TODO: make _DialogFormState description
-*/
-class _DialogFormState extends State<DialogForm> {
-  final GlobalKey<FormState> _requiredFormKey = GlobalKey<FormState>();
-  late String _name, _date;
-  String? _desc;
-
-  @override
-  Widget build(BuildContext context) {
-    return Form(
-      key: _requiredFormKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: RequiredField(
-              name: "Name",
-              onSaved: (value) {
-                _name = value!;
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: RequiredField(
-              name: "Date",
-              onSaved: (value) {
-                _date = value!;
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: TextFormField(
-              decoration: const InputDecoration(
-                labelText: "Description?",
-              ),
-              onSaved: (value) {
-                _desc = value;
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: ElevatedButton(
-              onPressed: () {
-                if (_requiredFormKey.currentState!.validate()) {
-                  _requiredFormKey.currentState?.save();
-                  widget.validateCallback(context,
-                      name: _name, date: _date, desc: _desc);
-                }
-              },
-              child: const Text("Confirm"),
-            ),
-          )
-        ],
+  Widget makeCategoryPanel(BuildContext context) {
+    return Column(children: [
+      TextButton(
+        child: const Text("Common", style: Styles.titleName),
+        onPressed: () {
+          setState(() => currentCategory = categoryManager["common"]!);
+        }
       ),
-    );
+      const Divider(height: 15),
+      TextButton(
+        child: const Text("Timers", style: Styles.titleName),
+        onPressed: () {
+          setState(() => currentCategory = categoryManager["timers"]!);
+        },
+      ),
+      // TODO: Add categories panel and sorting
+    ]);
   }
-}
 
-/*
-TODO: make OnSavedCallback description
-*/
-typedef OnSavedCallback = void Function(String? value)?;
+  Widget makeActionPanel(BuildContext context) {
+    return SizedBox(
+            height: double.infinity, 
+            width: 30,
+            child: Column(children: [
+              // Actions list
+              AddAction(onTap: onTap)
+            ]),
+      );
+  }
 
-/*
-TODO: make RequiredField description
-*/
-class RequiredField extends StatelessWidget {
-  final String _name;
-  final OnSavedCallback _onSaved;
-  const RequiredField(
-      {super.key, required String name, required OnSavedCallback onSaved})
-      : _name = name,
-        _onSaved = onSaved;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      decoration:
-          InputDecoration(labelText: _name, border: const OutlineInputBorder()),
-      validator: (value) {
-        if (value == null || value.isEmpty) return "Field is required.";
-        return null;
-      },
-      onSaved: _onSaved,
-    );
+  Padding buildTaskWidgetWithIndex(int index) {
+    return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: currentCategory.tasks[index].toWidget());
   }
 }
